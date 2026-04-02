@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PvE App Assistant</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #0d0d14;
+    --surface: #12121c;
+    --border: rgba(255,255,255,0.08);
+    --text: #e8e6f0;
+    --muted: #6b6880;
+    --accent: #7faaff;
+    --gold: #c8a96e;
+  }
+
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+  }
+
+  .chat-wrap {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-height: 100vh;
+  }
+
+  /* Header */
+  .chat-head {
+    padding: 12px 16px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+  .head-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: pulse 2s infinite;
+    flex-shrink: 0;
+  }
+  @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.4;transform:scale(.7)} }
+  .head-title { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+  .head-sub   { font-size: 0.65rem; color: var(--muted); margin-top: 1px; }
+
+  /* Messages */
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 14px 14px 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .messages::-webkit-scrollbar { width: 3px; }
+  .messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .msg {
+    max-width: 88%;
+    padding: 9px 13px;
+    border-radius: 12px;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    animation: fadeUp 0.25s ease;
+  }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:translateY(0)} }
+
+  .msg.user {
+    background: rgba(127,170,255,0.13);
+    border: 1px solid rgba(127,170,255,0.22);
+    color: var(--text);
+    align-self: flex-end;
+    border-radius: 12px 12px 2px 12px;
+  }
+  .msg.ai {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    color: #c8c6d8;
+    align-self: flex-start;
+    border-radius: 12px 12px 12px 2px;
+  }
+  .msg-label {
+    font-size: 0.55rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 5px;
+    opacity: 0.7;
+  }
+
+  .typing { display: flex; gap: 4px; padding: 2px 0; }
+  .typing span {
+    width: 5px; height: 5px; border-radius: 50%;
+    background: var(--muted);
+    animation: bounce 1.2s infinite;
+  }
+  .typing span:nth-child(2){animation-delay:.2s}
+  .typing span:nth-child(3){animation-delay:.4s}
+  @keyframes bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+
+  /* Input row */
+  .input-row {
+    padding: 10px 12px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    background: var(--surface);
+  }
+  #inp {
+    flex: 1;
+    font-family: inherit;
+    font-size: 0.82rem;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    color: var(--text);
+    outline: none;
+    resize: none;
+    min-height: 40px;
+    max-height: 96px;
+    line-height: 1.5;
+    transition: border-color 0.2s;
+  }
+  #inp::placeholder { color: var(--muted); opacity: 0.6; }
+  #inp:focus { border-color: rgba(127,170,255,0.35); }
+  #send {
+    font-family: inherit;
+    font-size: 0.75rem;
+    padding: 9px 14px;
+    border-radius: 8px;
+    border: 1px solid rgba(127,170,255,0.35);
+    background: rgba(127,170,255,0.1);
+    color: var(--accent);
+    cursor: pointer;
+    transition: all 0.2s;
+    align-self: flex-end;
+    min-height: 40px;
+    white-space: nowrap;
+  }
+  #send:hover { background: rgba(127,170,255,0.2); }
+  #send:disabled { opacity: 0.35; cursor: not-allowed; }
+
+  /* Suggested questions */
+  .suggestions {
+    padding: 0 14px 10px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .sug-btn {
+    font-family: inherit;
+    font-size: 0.68rem;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: left;
+  }
+  .sug-btn:hover { border-color: rgba(127,170,255,0.4); color: var(--accent); background: rgba(127,170,255,0.06); }
+</style>
+</head>
+<body>
+
+<div class="chat-wrap">
+
+  <div class="chat-head">
+    <div class="head-dot"></div>
+    <div>
+      <div class="head-title">PvE App Assistant</div>
+      <div class="head-sub">Ask anything about Iron Arena, Reap What You Sow, or Trade Together</div>
+    </div>
+  </div>
+
+  <div class="messages" id="msgs">
+    <div class="msg ai">
+      <div class="msg-label">Assistant</div>
+      Hey! I know all three PvE apps in detail. Ask me anything — how Iron Arena's combat works, how the $PvE &amp; $ETH drip system operates, or how to trade on Trade Together.
+    </div>
+  </div>
+
+  <div class="suggestions" id="sugs">
+    <button class="sug-btn" onclick="ask(this)">How does Iron Arena combat work?</button>
+    <button class="sug-btn" onclick="ask(this)">What is the $PvE drip?</button>
+    <button class="sug-btn" onclick="ask(this)">How do I trade commodities?</button>
+    <button class="sug-btn" onclick="ask(this)">What is PvE's mission?</button>
+  </div>
+
+  <div class="input-row">
+    <textarea id="inp" placeholder="Ask a question…" rows="1" onkeydown="onKey(event)" oninput="resize(this)"></textarea>
+    <button id="send" onclick="send()">Send</button>
+  </div>
+
+</div>
+
+<script>
+const SYSTEM = `You are a friendly assistant for the PvE (Player vs Environment) app showcase — a Web3/gaming project by fibtechnician built on a team-first culture as a counter to memecoin culture.
+
+IRON ARENA: A wave-based browser RPG with turn-based combat. Players fight 20+ enemies across 7 tiers: Common (Wild Wolf, Goblin Scout), Uncommon (Orc Warrior), Rare (Dark Knight, Stone Golem), Epic (Shadow Dragon, Arcane Lich), Legendary (Demon Lord, Chaos Titan, Soul Reaper, Abyssal Kraken, Inferno Phoenix, Storm Colossus), Mythic (Void Emperor, Eclipse Wraith, Blood Leviathan, Eternal Devourer), and Titan (World Breaker, Astral Executioner, Undying Behemoth, Void Architect, The First Evil). Players upgrade 4 stats: Stamina, Attack, Defense, Crit — 25 clicks per level. Shop has 12 cosmetic titles from Wanderer (free) to The Undying One (150,000 XP). Combat includes Block mechanic (costs 5 stamina), critical hits, floating damage numbers. Firebase powers a live global leaderboard and guild system. Iron Arena is going PVP soon.
+
+REAP WHAT YOU SOW: A browser-based $PvE token economy simulator. Users register wallets — each starting with 100 $PvE — visible on a shared public ledger. Weekly $ETH drip of +$0.01 ETH per wallet every Tuesday — enough for hundreds of transactions per week. Sending tokens costs 0.002 $ETH per transaction (burned). Automation tab lets users batch-distribute $PvE across wallets. Ledger tab logs every transaction, synced every 3 seconds across sessions.
+
+TRADE TOGETHER: A fantasy commodity trading game with 6 assets: Dragon Longsword (220gp), Fire Rune Bundle (85gp), Super Restore Potion (150gp), Onyx Gem (310gp), Dragon Leather Hide (175gp), Rune Arrow Bundle (55gp). OHLC candlestick charts with moving average overlay. LONG/SHORT positions with stop-loss and take-profit. Portfolio tracker with unrealized P&L. History tab with win rate and trade log.
+
+PVE MISSION: fibtechnician built PvE as a team-first Web3 culture — a direct counter to memecoin culture where 90%+ of coins never graduate launchpads. Co-op end-game tactics and shared reward systems (like Reap What You Sow) reflect this philosophy. This is a live, fluid project that will pivot when needed.
+
+Answer concisely and helpfully. Be friendly. 2-4 sentences unless more detail is asked for.`;
+
+let history = [];
+
+async function callClaude(messages) {
+  const res = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 800, system: SYSTEM, messages })
+  });
+  const data = await res.json();
+  return data.content?.map(b => b.text || '').join('') || '';
+}
+
+function addMsg(role, html) {
+  const msgs = document.getElementById('msgs');
+  const d = document.createElement('div');
+  d.className = `msg ${role}`;
+  if (role === 'ai') d.innerHTML = `<div class="msg-label">Assistant</div>${html}`;
+  else d.textContent = html;
+  msgs.appendChild(d);
+  msgs.scrollTop = msgs.scrollHeight;
+  return d;
+}
+
+function addTyping() {
+  const msgs = document.getElementById('msgs');
+  const d = document.createElement('div');
+  d.className = 'msg ai'; d.id = 'typing';
+  d.innerHTML = '<div class="msg-label">Assistant</div><div class="typing"><span></span><span></span><span></span></div>';
+  msgs.appendChild(d);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+function ask(btn) {
+  document.getElementById('inp').value = btn.textContent;
+  document.getElementById('sugs').style.display = 'none';
+  send();
+}
+
+function onKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
+}
+
+function resize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 96) + 'px';
+}
+
+async function send() {
+  const inp = document.getElementById('inp');
+  const btn = document.getElementById('send');
+  const text = inp.value.trim();
+  if (!text || btn.disabled) return;
+
+  document.getElementById('sugs').style.display = 'none';
+  inp.value = ''; inp.style.height = 'auto';
+  addMsg('user', text);
+  history.push({ role: 'user', content: text });
+
+  btn.disabled = true;
+  addTyping();
+
+  try {
+    const reply = await callClaude(history);
+    document.getElementById('typing')?.remove();
+    addMsg('ai', reply.replace(/\n/g, '<br>'));
+    history.push({ role: 'assistant', content: reply });
+  } catch(e) {
+    document.getElementById('typing')?.remove();
+    addMsg('ai', 'Something went wrong. Please try again.');
+  }
+
+  btn.disabled = false;
+  inp.focus();
+}
+</script>
+</body>
+</html>
